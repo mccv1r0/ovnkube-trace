@@ -650,6 +650,39 @@ func main() {
 	logrus.Debugf("Source to Destination ovs-appctl Output: %s", outSrcTrace.String())
 	fmt.Printf("Source to Destination ovs-appctl Output: %s", outSrcTrace.String())
 
+	// ovs-appctl ofproto/trace: dst pod to src pod
+
+	if *cliConfig == "" {
+		cmdDstTrace = exec.Command("oc", "rsh", "--namespace", ovnNamespace, dstPodInfo.OvnKubePodContainerName)
+	} else {
+		cmdDstTrace = exec.Command("oc", "rsh", "--namespace", ovnNamespace, "--kubeconfig", *cliConfig, dstPodInfo.OvnKubePodContainerName)
+	}
+
+	fromDst = "ofproto/trace br-int" 
+	fromDst += " \"in_port=" + dstPodInfo.VethName + ", " + protocol + ","
+	fromDst += " dl_dst=" + dstPodInfo.StorMAC + ","
+	fromDst += " dl_src=" + dstPodInfo.MAC + ","
+	fromDst += " nw_dst=" + srcPodInfo.IP + ","
+	fromDst += " nw_src=" + dstPodInfo.IP + ","
+	fromDst += " nw_ttl=64" + ","
+	fromDst += " " + protocol + "_src=" + *dstPort + ","
+	fromDst += " " + protocol + "_dst=" + "12345 \""
+
+	logrus.Debugf("trace command is %s", fromDst)
+
+	cmdDstTrace.Stdin = strings.NewReader("ovs-appctl " + fromDst)
+	cmdDstTrace.Stdout = &outDstTrace
+
+	logrus.Debugf("command is: %s\n", "ovs-appctl " + fromDst)
+	err = cmdDstTrace.Run()
+	if err != nil {
+		fmt.Printf("cmdTrace.Run() failed with %s\n", err)
+		logrus.Fatalf("cmdSrcTrace.Run() failed with %s", err)
+		os.Exit(-1)
+	}
+	logrus.Debugf("Destination to Source ovn-trace Output: %s\n", outDstTrace.String())
+	fmt.Printf("Destination to Source ovn-trace Output: %s\n", outDstTrace.String())
+
 	// TODO Next
 	//
 }
